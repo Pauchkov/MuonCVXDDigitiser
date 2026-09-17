@@ -203,7 +203,9 @@ protected:
     Gaudi::Property<double> m_timeSmearingSigma{this, "TimeSmearingSigma", 0.05, "Effective intrinsic time measurement resolution effects [ns]."};
     Gaudi::Property<bool>   m_electronicEffects{this, "ElectronicEffects", true, "Apply Electronic Effects"};
     Gaudi::Property<bool>   m_produceFullPattern{this, "StoreFiredPixels", false, "Store fired pixels"};
+    Gaudi::Property<std::string> m_readoutName{this, "ReadoutName", "", "DD4hep readout whose cell ID encoding should be used"};
     Gaudi::Property<std::string> m_encodingStringVariable{this, "EncodingStringParameterName", "GlobalTrackerReadoutID", "The name of the DD4hep constant that contains the Encoding string for the detector"};
+    std::string m_encodingString{};
 
     MyG4UniversalFluctuationForSi *m_fluctuate;
 

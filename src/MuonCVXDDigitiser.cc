@@ -83,6 +83,18 @@ StatusCode MuonCVXDDigitiser::initialize() {
 StatusCode MuonCVXDDigitiser::LoadGeometry() {
     Detector& theDetector = Detector::getInstance();
 
+    if (m_readoutName.value().empty()) {
+      m_encodingString = m_geoSvc->constantAsString(m_encodingStringVariable.value());
+    } else {
+      try {
+        m_encodingString = theDetector.readout(m_readoutName.value()).idSpec().fieldDescription();
+      } catch (const std::exception& exception) {
+        error() << "Could not obtain cell ID encoding from readout " << m_readoutName
+                << ": " << exception.what() << endmsg;
+        return StatusCode::FAILURE;
+      }
+    }
+
     DetElement subDetector = theDetector.detector(m_subDetName);
     std::vector<ZPlanarData::LayerLayout> barrelLayers;
     std::vector<ZDiskPetalsData::LayerLayout> endcapLayers;
@@ -247,9 +259,7 @@ std::tuple<edm4hep::SimTrackerHitCollection,
     m_engine.SetSeed(seed);
 
     // Set Up CellID Decoder
-    std::string initString;  
-    initString = m_geoSvc->constantAsString(m_encodingStringVariable.value());
-    dd4hep::DDSegmentation::BitFieldCoder cellID_coder(initString); 
+    dd4hep::DDSegmentation::BitFieldCoder cellID_coder(m_encodingString);
     
     int nSimHits = STHcol.size();
     debug() << "Processing collection " << STHcol.getID()  << " with " <<  nSimHits  << " hits ... " << endmsg;
