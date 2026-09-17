@@ -47,6 +47,7 @@ gaudi_add_module(MuonCVXDigitiserPlugins
                         	ROOT::Hist
                         	${ROOT_LIBRARIES}
                         	DD4hep::DDCore
+                         DD4hep::DDRec
                         	k4FWCore::k4FWCore
                         	${GSL_LIBRARIES}
 				${CLHEP_LIBRARIES})
