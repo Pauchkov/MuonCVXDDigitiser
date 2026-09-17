@@ -169,10 +169,10 @@ public:
 
 protected:
 
-    bool isBarrel;
-    bool isVertex;
-    bool isInnerTracker;
-    bool isOuterTracker;
+    bool isBarrel{false};
+    bool isVertex{false};
+    bool isInnerTracker{false};
+    bool isOuterTracker{false};
 
     // processor 
     Gaudi::Property<std::string> m_subDetName{this, "SubDetectorName", std::string("VertexBarrel"), "Name of Vertex detector"};

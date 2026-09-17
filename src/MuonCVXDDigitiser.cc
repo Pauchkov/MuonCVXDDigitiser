@@ -55,7 +55,8 @@ StatusCode MuonCVXDDigitiser::initialize() {
     // Determine if we're handling barrel or endcap geometry
     if (m_subDetName.value().find("Barrel") != std::string::npos) {
       isBarrel=true;
-    } else if (m_subDetName.value().find("Endcap") != std::string::npos) {
+    } else if (m_subDetName.value().find("Endcap") != std::string::npos ||
+               m_subDetName.value().find("Forward") != std::string::npos) {
       isBarrel=false;
     } else {
       error() << " Could not determine sub-detector type for: " << m_subDetName;
@@ -69,6 +70,8 @@ StatusCode MuonCVXDDigitiser::initialize() {
       isInnerTracker=true;
     } else if (m_subDetName.value().find("OuterTracker") != std::string::npos) {
       isOuterTracker=true;
+    } else if (m_subDetName.value().find("SiTracker") != std::string::npos) {
+      isInnerTracker=true;
     } else {
       error() << " Could not determine sub-detector type for: " << m_subDetName << endmsg;
       return StatusCode::FAILURE;
