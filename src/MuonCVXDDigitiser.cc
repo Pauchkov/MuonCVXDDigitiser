@@ -3,6 +3,8 @@
 // Standard
 #include <iostream>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 // edm4hep
 #include <edm4hep/MCParticle.h>
@@ -203,6 +205,15 @@ StatusCode MuonCVXDDigitiser::LoadGeometry() {
       }
     }
 
+    for (int layer = 0; layer < m_numberOfLayers; ++layer) {
+      if (!std::isfinite(m_layerThickness[layer]) || m_layerThickness[layer] <= 0.) {
+        error() << "Invalid sensitive thickness for " << m_subDetName
+                << " layer " << layer + 1 << ": " << m_layerThickness[layer]
+                << " mm; check detector geometry" << endmsg;
+        return StatusCode::FAILURE;
+      }
+    }
+
     // temp fix for issue: z_layout.lengthSensor = 0 for the inner tracker barrel
     // manually hard code values for ladderlength
     /* if (m_layerLadderLength[0] == 0 && isInnerTracker && isBarrel){
@@ -296,7 +307,7 @@ std::tuple<edm4hep::SimTrackerHitCollection,
             << "\n- isSecondary = " << simTrkHit.isProducedBySecondary() << ", isOverlay = " << simTrkHit.isOverlay()
             << "\n- Quality = " << simTrkHit.getQuality() << endmsg;
         ProduceIonisationPoints( simTrkHit, &intState );
-        if (intState.currentLayer == -1)
+        if (intState.currentLayer == -1 || intState.numberOfSegments == 0)
           continue;
         ProduceSignalPoints(&intState);
         MutableSimTrackerHitVec simTrkHitVec;
@@ -529,6 +540,7 @@ void MuonCVXDDigitiser::FindLocalPosition(edm4hep::SimTrackerHit &hit,
 
 void MuonCVXDDigitiser::ProduceIonisationPoints(edm4hep::SimTrackerHit &hit, InternalState *intState) const{
     debug() << "Creating Ionization Points" << endmsg;
+    intState->numberOfSegments = 0;
     edm4hep::Vector3d pos(0,0,0);
     edm4hep::Vector3d dir(0,0,0);
     double entry[3];
@@ -537,6 +549,26 @@ void MuonCVXDDigitiser::ProduceIonisationPoints(edm4hep::SimTrackerHit &hit, Int
     FindLocalPosition(hit, pos, dir, intState);
     if ( intState->currentLayer == -1)
       return;
+
+    if (!std::isfinite(dir.x) || !std::isfinite(dir.y) ||
+        !std::isfinite(dir.z) || dir.z == 0.) {
+      warning() << "Skipping hit with invalid local track direction in "
+                << m_subDetName << " layer " << intState->currentLayer + 1 << endmsg;
+      return;
+    }
+    const double tanx = dir.x / dir.z;
+    const double tany = dir.y / dir.z;
+    // Track length is in mm and is capped at the configured maximum.
+    const double trackLength = std::min(m_maxTrkLen.value(),
+        m_layerThickness[intState->currentLayer] * std::sqrt(1.0 + tanx * tanx + tany * tany));
+    const double segmentCount = std::ceil(trackLength / m_segmentLength.value());
+    if (!std::isfinite(trackLength) || trackLength <= 0. ||
+        !std::isfinite(segmentCount) || segmentCount < 1. ||
+        segmentCount > std::numeric_limits<int>::max()) {
+      warning() << "Skipping hit with invalid track length " << trackLength
+                << " mm in " << m_subDetName << " layer " << intState->currentLayer + 1 << endmsg;
+      return;
+    }
  
     entry[2] = -m_layerHalfThickness[intState->currentLayer]; 
     exit[2] = m_layerHalfThickness[intState->currentLayer];
@@ -558,19 +590,12 @@ void MuonCVXDDigitiser::ProduceIonisationPoints(edm4hep::SimTrackerHit &hit, Int
     debug() << "local position: " << intState->currentLocalPosition.x << ", "
                                             << intState->currentLocalPosition.y << ", "
                                             << intState->currentLocalPosition.z << endmsg;
-    double tanx = dir.x / dir.z;
-    double tany = dir.y / dir.z;  
-    
-    // trackLength is in mm -> limit length at 1cm
-    double trackLength = std::min(m_maxTrkLen.value(),
-         m_layerThickness[intState->currentLayer] * sqrt(1.0 + pow(tanx, 2) + pow(tany, 2)));
- 
     // PRINTING 0.....
     debug() << intState->currentLayer << endmsg;
     debug() << m_layerThickness[intState->currentLayer] <<endmsg;
     debug() << m_maxTrkLen.value() << endmsg;
 
-    intState->numberOfSegments = ceil(trackLength / m_segmentLength );
+    intState->numberOfSegments = static_cast<int>(segmentCount);
     double dEmean = (dd4hep::keV * m_energyLoss * trackLength) / ((double)(intState->numberOfSegments));
     intState->ionisationPoints.resize(intState->numberOfSegments);
     debug() <<  "Track path length: " << trackLength << ", calculated dEmean * N_segment = " << dEmean << " * " << intState->numberOfSegments << " = " << dEmean*intState->numberOfSegments << endmsg;
